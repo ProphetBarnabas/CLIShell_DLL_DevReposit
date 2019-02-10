@@ -1,0 +1,21 @@
+CLIShell v1.0.1
+Method rework on GetCommand and GetCommandFromArray
+
+---------------------------------------
+
+	- Args are now ordered sequentially(in the exact order of the input)
+	
+	- Commands with Command.AcceptsGlobs = false now can handle double quotes but ignores any other glob patterns
+	
+============================================================================================================================================
+
+CLIShell v1.0.2
+Method fixes on GetCommand and GetCommandFromArray
+
+---------------------------------------
+
+	- Fixed: Spaces are removed between double quotes("")
+
+	- Fixed: Command call finds uncalled command
+	
+============================================================================================================================================

@@ -1,0 +1,12 @@
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\bin\Release\CLIShell.dll
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\bin\Release\CLIShell.pdb
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Release\CLIShell.csproj.CoreCompileInputs.cache
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Release\CLIShell.dll
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Release\CLIShell.pdb
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Release\CLIShell.csprojAssemblyReference.cache
+C:\Users\ProphetBarnabas\Documents\GitHub\CLIShell_DLL_DevReposit\CLIShell\CLIShell\bin\Release\CLIShell.dll
+C:\Users\ProphetBarnabas\Documents\GitHub\CLIShell_DLL_DevReposit\CLIShell\CLIShell\bin\Release\CLIShell.pdb
+C:\Users\ProphetBarnabas\Documents\GitHub\CLIShell_DLL_DevReposit\CLIShell\CLIShell\obj\Release\CLIShell.csprojAssemblyReference.cache
+C:\Users\ProphetBarnabas\Documents\GitHub\CLIShell_DLL_DevReposit\CLIShell\CLIShell\obj\Release\CLIShell.csproj.CoreCompileInputs.cache
+C:\Users\ProphetBarnabas\Documents\GitHub\CLIShell_DLL_DevReposit\CLIShell\CLIShell\obj\Release\CLIShell.dll
+C:\Users\ProphetBarnabas\Documents\GitHub\CLIShell_DLL_DevReposit\CLIShell\CLIShell\obj\Release\CLIShell.pdb
