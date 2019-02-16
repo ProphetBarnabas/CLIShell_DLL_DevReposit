@@ -99,15 +99,23 @@ namespace CLIShell
                             FirstCharAsterisk = true;
                             dummyStr = dummyStr.Remove(0, 1);
                         }
-                        if (dummyStr.Last() == '*')
+                        if (dummyStr[dummyStr.Length - 1] == '*')
                         {
                             LastCharAsterisk = true;
                             dummyStr = dummyStr.Remove(dummyStr.Length - 1, 1);
+                            InterpretedString = dummyStr;
                         }
                         if (FindCharacterIndices('\"', dummyStr).Length == 2)
                         {
-                            DoubleQuote = true;
-                            dummyStr = dummyStr.Replace("\"", "");
+                            if (dummyStr[0] == '\"' && dummyStr.Last() == '\"')
+                            {
+                                DoubleQuote = true;
+                                dummyStr = dummyStr.Replace("\"", "");
+                            }
+                            else
+                            {
+                                throw new InterpreterException("Invalid double quote location!");
+                            }
                         }
                         InterpretedString = dummyStr;
                     }
@@ -363,11 +371,15 @@ namespace CLIShell
                             {
                                 newArg = new Argument();
                                 newArg.Arg = orderedArgs[j];
-                                if (newArg.Arg.StartsWith("\"") || newArg.Arg.StartsWith("!\"") || newArg.Arg.StartsWith("*\"") || newArg.Arg.EndsWith("\"") || newArg.Arg.EndsWith("\"*"))
+                                if (newArg.Arg.Last() == ' ')
+                                {
+                                    newArg.Arg = newArg.Arg.Remove(newArg.Arg.Length - 1);
+                                }
+                                if (newArg.Arg.StartsWith("!") || newArg.Arg.StartsWith("*") || newArg.Arg.EndsWith("*"))
                                 {
                                     newArg.ContainsGlobs = true;
                                 }
-                                else if (!newArg.Arg.StartsWith("\"") && !newArg.Arg.StartsWith("!\"") && !newArg.Arg.StartsWith("*\"") && !newArg.Arg.EndsWith("\"") && !newArg.Arg.EndsWith("\"*"))
+                                else if (!newArg.Arg.StartsWith("!") && !newArg.Arg.StartsWith("*") && !newArg.Arg.EndsWith("*"))
                                 {
                                     newArg.ContainsGlobs = false;
                                 }
@@ -505,11 +517,15 @@ namespace CLIShell
                         {
                             newArg = new Argument();
                             newArg.Arg = orderedArgs[j];
-                            if (newArg.Arg.StartsWith("\"") || newArg.Arg.StartsWith("!\"") || newArg.Arg.StartsWith("*\"") || newArg.Arg.EndsWith("\"") || newArg.Arg.EndsWith("\"*"))
+                            if (newArg.Arg.Last() == ' ')
+                            {
+                                newArg.Arg = newArg.Arg.Remove(newArg.Arg.Length - 1);
+                            }
+                            if (newArg.Arg.StartsWith("!") || newArg.Arg.StartsWith("*") || newArg.Arg.EndsWith("*"))
                             {
                                 newArg.ContainsGlobs = true;
                             }
-                            else if (!newArg.Arg.StartsWith("\"") && !newArg.Arg.StartsWith("!\"") && !newArg.Arg.StartsWith("*\"") && !newArg.Arg.EndsWith("\"") && !newArg.Arg.EndsWith("\"*"))
+                            else if (!newArg.Arg.StartsWith("!") && !newArg.Arg.StartsWith("*") && !newArg.Arg.EndsWith("*"))
                             {
                                 newArg.ContainsGlobs = false;
                             }
