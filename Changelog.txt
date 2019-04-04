@@ -32,3 +32,69 @@ Argument formatting fix, interpreter fix
 	- Fixed: Argument ends with space character
 
 ============================================================================================================================================
+
+CLIShell v1.1.0
+New constructor parameters, new methods, new classes
+
+---------------------------------------
+
+	- New (optional) parameter for Command class: Description
+
+	- New ArgumentManagement struct: 
+		
+		- Methods: 
+			- GetArgument(string arg) returns Argument
+
+			- GetArguments(string[] args) returns Argument[]
+	
+	- New CommandPool class: 
+
+		- Methods: 
+
+			- Add(Command cmdToAdd, Action cmdFunc = null)
+
+			- Remove(string cmdCall)
+
+			- AlterCommand(string cmdCall, int minArgCount, int maxArgCount, bool allowGlobs, string newCall = null, Action function = null, string description = null)
+
+			- GetCommands() returns Command[] (returns all commands from the pool)
+
+
+	- CommandManagement class rework:
+	
+			- New parameters:
+			
+				- CommandPool CommandPool
+				
+				- string LastExecutedCall
+				
+				- bool CommandFound
+	
+			- Added constructor:
+
+				- Parameters: CommandPool
+			
+			- GetCommandFromArray modifications:
+			
+				- renamed to GetCommandFromPool
+				
+				- removed Command[] parameter
+				
+				
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			

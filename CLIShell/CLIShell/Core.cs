@@ -54,7 +54,7 @@ namespace CLIShell
             public void GetParameters()
             {
                 string dummyStr = InputString;
-                
+
                 if (dummyStr.Length > 1)
                 {
                     /*Throwing exceptions if the argument contains invalid glob character pattern.*/
@@ -216,9 +216,12 @@ namespace CLIShell
     {
         /*The full command containing the call and all arguments.*/
         public string FullCommand;
-        
+
         /*The name of the command.*/
         public string Call { get; private set; }
+
+        /*The description of the command*/
+        public string Description { get; private set; }
 
         /*The arguments of the command.*/
         public Argument[] Args;
@@ -230,26 +233,93 @@ namespace CLIShell
         public int MaxArgCount { get; private set; }
 
         /*Determines if the command can handle glob characters.*/
-        public bool AcceptsGlobs { get; private set; }
+        public bool AllowGlobs { get; private set; }
 
         /*The function is to be executed when the command is called by the user.*/
         public Action Function;
 
         /*The default constructor.*/
-        public Command(string call, int minArgCount, int maxArgCount, bool acceptsGlobs, string fullCommand = null, Action function = null)
+        public Command(string call, int minArgCount, int maxArgCount, bool allowGlobs, string description = null, string fullCommand = null, Action function = null)
         {
             Call = call;
             MinArgCount = minArgCount;
             MaxArgCount = maxArgCount;
+            Description = description;
             FullCommand = fullCommand;
             Args = new Argument[MaxArgCount];
-            AcceptsGlobs = acceptsGlobs;
+            AllowGlobs = allowGlobs;
             Function = function;
+        }
+    }
+
+    public struct ArgumentManagement
+    {
+        public Argument GetArgument(string arg)
+        {
+            Argument newArg = new Argument();
+            newArg.Arg = arg;
+            if (newArg.Arg.Last() == ' ')
+            {
+                newArg.Arg = newArg.Arg.Remove(newArg.Arg.Length - 1);
+            }
+            if (newArg.Arg.StartsWith("!") || newArg.Arg.StartsWith("*") || newArg.Arg.EndsWith("*"))
+            {
+                newArg.ContainsGlobs = true;
+            }
+            else if (!newArg.Arg.StartsWith("!") && !newArg.Arg.StartsWith("*") && !newArg.Arg.EndsWith("*"))
+            {
+                newArg.ContainsGlobs = false;
+            }
+            newArg.InterpreterParameters = new InterpreterParameters(arg);
+            newArg.InterpreterParameters.GetParameters();
+            return newArg;
+        }
+
+        public Argument[] GetArguments(string[] args)
+        {
+            List<Argument> argList = new List<Argument>();
+            for (int i = 0; i < args.Length; i++)
+            {
+                Argument newArg = new Argument();
+                newArg.Arg = args[i];
+                if (newArg.Arg.Last() == ' ')
+                {
+                    newArg.Arg = newArg.Arg.Remove(newArg.Arg.Length - 1);
+                }
+                if (newArg.Arg.StartsWith("!") || newArg.Arg.StartsWith("*") || newArg.Arg.EndsWith("*"))
+                {
+                    newArg.ContainsGlobs = true;
+                }
+                else if (!newArg.Arg.StartsWith("!") && !newArg.Arg.StartsWith("*") && !newArg.Arg.EndsWith("*"))
+                {
+                    newArg.ContainsGlobs = false;
+                }
+                newArg.InterpreterParameters = new InterpreterParameters(args[i]);
+                newArg.InterpreterParameters.GetParameters();
+                argList.Add(newArg);
+            }
+
+            return argList.ToArray();
         }
     }
 
     public class CommandManagement
     {
+        /*Determines if the most recently executed command has been found.*/
+        public bool CommandFound { get; private set; }
+
+        /*Contains the call of the last executed command.*/
+        public string LastExecutedCall { get; private set; }
+
+        /*Contains all commands.*/
+        public CommandPool CommandPool { get; private set; }
+
+        /*The default constructor.*/
+        public CommandManagement(CommandPool pool)
+        {
+            CommandPool = pool;
+        }
+
         /*A private method to find character indices in arguments.*/
         private int[] FindCharacterIndices(char charToFind, string inputStr)
         {
@@ -264,9 +334,28 @@ namespace CLIShell
             return indexList.ToArray();
         }
 
-        /*A public method to find a command called by the user in a specified command array.*/
-        public Command GetCommandFromArray(Command[] cmdArray, string inputStr)
+        /*Returns the most recently executed command if any.*/
+        public Command GetLastExecuted()
         {
+            if (CommandFound)
+            {
+                Command[] cmdArray = CommandPool.GetCommands();
+                for (int i = 0; i < cmdArray.Length; i++)
+                {
+                    if (cmdArray[i].Call == LastExecutedCall)
+                    {
+                        return cmdArray[i];
+                    }
+                }
+            }
+            throw new CommandException("Command could not be found!");
+        }
+
+        /*A public method to find a command called by the user in the command pool specified in the constructor.*/
+        public Command GetCommandFromPool(string inputStr)
+        {
+            Command[] cmdArray = CommandPool.GetCommands();
+            CommandFound = false;
             string tempArgStr = null;
             string[] argSplit = null;
             List<string> orderedArgs = null;
@@ -279,6 +368,7 @@ namespace CLIShell
                 /*Gathering arguments if the command have been found*/
                 if (inputStr.StartsWith(cmdArray[i].Call + " ") || inputStr.StartsWith(cmdArray[i].Call.ToUpper() + " ") || inputStr.StartsWith(cmdArray[i].Call.ToLower() + " ") || inputStr == cmdArray[i].Call || inputStr == cmdArray[i].Call.ToUpper() || inputStr == cmdArray[i].Call.ToLower())
                 {
+                    CommandFound = true;
                     if (cmdArray[i].MaxArgCount > 0)
                     {
                         /*Removing the command Call from the input*/
@@ -291,7 +381,7 @@ namespace CLIShell
                         /*Separating arguments considering the command's glob character support*/
                         orderedArgs = new List<string>();
                         argSplit = inputStr.Split(' ');
-                        if (cmdArray[i].AcceptsGlobs)
+                        if (cmdArray[i].AllowGlobs)
                         {
                             for (int j = 0; j < argSplit.Length; j++)
                             {
@@ -409,13 +499,14 @@ namespace CLIShell
                     }
                 }
             }
-            /*If the command cannot be identified by the "Call" property, the method returns null*/
+            /*If the command cannot be identified by the "Call" property, the method returns an empty command*/
             return null;
         }
 
-        /*Determines if the specified command is called by the user and if it is, returns the command, otherwise returns null.*/
+        /*Determines if the specified command is called by the user and if it is, returns the command, otherwise returns an empty command.*/
         public Command GetCommand(Command cmd, string inputStr)
         {
+            CommandFound = false;
             string tempArgStr = null;
             string[] argSplit = null;
             List<string> orderedArgs = null;
@@ -426,6 +517,7 @@ namespace CLIShell
             /*Gathering arguments if the command have been found*/
             if (inputStr.StartsWith(cmd.Call + " ") || inputStr.StartsWith(cmd.Call.ToUpper() + " ") || inputStr.StartsWith(cmd.Call.ToLower() + " ") || inputStr == cmd.Call || inputStr == cmd.Call.ToUpper() || inputStr == cmd.Call.ToLower())
             {
+                CommandFound = true;
                 if (cmd.MaxArgCount > 0)
                 {
                     /*Removing the command Call from the input*/
@@ -438,7 +530,7 @@ namespace CLIShell
                     /*Separating arguments considering the command's glob character support*/
                     orderedArgs = new List<string>();
                     argSplit = inputStr.Split(' ');
-                    if (cmd.AcceptsGlobs)
+                    if (cmd.AllowGlobs)
                     {
                         for (int j = 0; j < argSplit.Length; j++)
                         {
@@ -531,7 +623,7 @@ namespace CLIShell
                             }
                             newArg.InterpreterParameters = new InterpreterParameters(newArg.Arg);
                             newArg.InterpreterParameters.GetParameters();
-                            argList.Add(newArg);
+                            argList.Add(newArg);               
                         }
                     }
                     /*Handling argument count limit overrun*/
@@ -554,14 +646,14 @@ namespace CLIShell
                     return cmd;
                 }
             }
-            /*If the command cannot be identified by the "Call" property, the method returns null*/
+            /*If the command cannot be identified by the "Call" property, the method returns an empty command*/
             return null;
         }
 
         /*Attempts to execute the specified command.*/
         public void ExecuteCommand(Command cmdToExecute)
         {
-            if (cmdToExecute == null)
+            if (cmdToExecute.Call == null)
             {
                 throw new CommandException("Command to execute returned null!");
             }
@@ -573,6 +665,93 @@ namespace CLIShell
             {
                 throw new CommandException("A command function is not assigned!");
             }
+        }
+    }
+
+    public class CommandPool
+    {
+        private List<Command> CMD_LST = new List<Command>();
+
+        public void Add(Command cmdToAdd, Action cmdFunc = null)
+        {
+            for (int i = 0; i < CMD_LST.Count(); i++)
+            {
+                if (CMD_LST[i].Call == cmdToAdd.Call)
+                {
+                    throw new Exception("A command with the same call(name) already exists in the pool!");
+                }
+            }
+            if (cmdFunc != null)
+            {
+                cmdToAdd.Function = cmdFunc;
+            }
+            CMD_LST.Add(cmdToAdd);
+        }
+
+        public void Remove(string cmdCall)
+        {
+            bool found = false;
+            for (int i = 0; i < CMD_LST.Count(); i++)
+            {
+                if (CMD_LST[i].Call == cmdCall)
+                {
+                    found = true;
+                    CMD_LST.RemoveAt(i);
+                    break;
+                }
+            }
+            if (!found)
+            {
+                throw new Exception("Command not found!");
+            }    
+        }
+
+        public void AlterCommand(string cmdCall, int minArgCount, int maxArgCount, bool allowGlobs, string newCall = null, Action function = null, string description = null)
+        {
+            Command cmdToAlter = null;
+            for (int j = 0; j < CMD_LST.Count(); j++)
+            {
+                if (CMD_LST[j].Call == newCall)
+                {
+                    throw new Exception("A command with the same call(name) already exists in the pool!");
+                }
+            }
+            for (int i = 0; i < CMD_LST.Count(); i++)
+            {
+                if (CMD_LST[i].Call == cmdCall)
+                {
+                    cmdToAlter = CMD_LST[i];
+                    string CALL = newCall;
+                    int MIN_ARG_CNT = minArgCount;
+                    int MAX_ARG_CNT = maxArgCount;
+                    bool ALLOW_GLOB = allowGlobs;
+                    string DESC = description;
+                    Action FUNC = function;
+                    if (newCall == null)
+                    {
+                        CALL = cmdToAlter.Call;
+                    }
+                    if (description == null)
+                    {
+                        DESC = cmdToAlter.Description;
+                    }
+                    if (function == null)
+                    {
+                        FUNC = cmdToAlter.Function;
+                    }
+                    CMD_LST[i] = new Command(CALL, MIN_ARG_CNT, MAX_ARG_CNT, ALLOW_GLOB, DESC, null, FUNC);
+                    break;
+                }
+            }
+            if (cmdToAlter == null)
+            {
+                throw new Exception("Command not found!");
+            }
+        }
+
+        public Command[] GetCommands()
+        {
+            return CMD_LST.ToArray();
         }
     }
 
