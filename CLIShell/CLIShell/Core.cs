@@ -35,6 +35,9 @@ namespace CLIShell
             /*Determines if the argument ends with: *(the glob character that defines any character at any length).*/
             public bool LastCharAsterisk { get; private set; }
 
+            /*Determines if the argument starts and ends with: * *(the glob character that defines any character at any length).*/
+            public bool BothEndAsterisk { get; private set; }
+
             /*Determines if the contains : " "(any metacharacter between double quotes are interpreted as normal characters).*/
             public bool DoubleQuote { get; private set; }
 
@@ -71,10 +74,6 @@ namespace CLIShell
                         if (dummyStr.Last() == '!')
                         {
                             throw new InterpreterException("Unrecognizable glob character pattern! Argument cannot end with: !");
-                        }
-                        if (dummyStr.First() == '*' && dummyStr.Last() == '*')
-                        {
-                            throw new InterpreterException("Unrecognizable glob character pattern! First and last char asterisk coexistence occurred!");
                         }
                         if (FindCharacterIndices('\"', dummyStr).Length == 1)
                         {
@@ -116,6 +115,12 @@ namespace CLIShell
                             {
                                 throw new InterpreterException("Invalid double quote location!");
                             }
+                        }
+                        if (FirstCharAsterisk && LastCharAsterisk)
+                        {
+                            BothEndAsterisk = true;
+                            FirstCharAsterisk = false;
+                            LastCharAsterisk = false;
                         }
                         InterpretedString = dummyStr;
                     }
@@ -179,9 +184,23 @@ namespace CLIShell
                         Result = true;
                     }
                 }
-                else if (!intPtrParams.Negate && !intPtrParams.FirstCharAsterisk && !intPtrParams.LastCharAsterisk)
+                else if (!intPtrParams.Negate && !intPtrParams.FirstCharAsterisk && !intPtrParams.LastCharAsterisk && !intPtrParams.BothEndAsterisk)
                 {
                     if (ComparedString == intPtrParams.InterpretedString)
+                    {
+                        Result = true;
+                    }
+                }
+                else if (intPtrParams.Negate && intPtrParams.BothEndAsterisk)
+                {
+                    if (!ComparedString.Contains(intPtrParams.InterpretedString))
+                    {
+                        Result = true;
+                    }
+                }
+                else if (!intPtrParams.Negate && intPtrParams.BothEndAsterisk)
+                {
+                    if (ComparedString.Contains(intPtrParams.InterpretedString))
                     {
                         Result = true;
                     }
@@ -305,11 +324,11 @@ namespace CLIShell
 
     public class CommandManagement
     {
-        /*Determines if the most recently executed command has been found.*/
-        public bool CommandFound { get; private set; }
+        /*Used in GetCommand() and GetCommandFromPool()*/
+        private ArgumentManagement ARG_MGMT;
 
-        /*Contains the call of the last executed command.*/
-        public string LastExecutedCall { get; private set; }
+        /*GetLastExecuted() method return value*/
+        private Command LAST_CMD;
 
         /*Contains all commands.*/
         public CommandPool CommandPool { get; private set; }
@@ -320,33 +339,12 @@ namespace CLIShell
             CommandPool = pool;
         }
 
-        /*A private method to find character indices in arguments.*/
-        private int[] FindCharacterIndices(char charToFind, string inputStr)
-        {
-            List<int> indexList = new List<int>();
-            for (int i = 0; i < inputStr.Length; i++)
-            {
-                if (inputStr[i] == charToFind)
-                {
-                    indexList.Add(i);
-                }
-            }
-            return indexList.ToArray();
-        }
-
         /*Returns the most recently executed command if any.*/
         public Command GetLastExecuted()
         {
-            if (CommandFound)
+            if (LAST_CMD != null)
             {
-                Command[] cmdArray = CommandPool.GetCommands();
-                for (int i = 0; i < cmdArray.Length; i++)
-                {
-                    if (cmdArray[i].Call == LastExecutedCall)
-                    {
-                        return cmdArray[i];
-                    }
-                }
+                return LAST_CMD;
             }
             throw new CommandException("Command could not be found!");
         }
@@ -354,170 +352,124 @@ namespace CLIShell
         /*A public method to find a command called by the user in the command pool specified in the constructor.*/
         public Command GetCommandFromPool(string inputStr)
         {
-            Command[] cmdArray = CommandPool.GetCommands();
-            CommandFound = false;
-            string tempArgStr = null;
-            string[] argSplit = null;
-            List<string> orderedArgs = null;
+            ARG_MGMT = new ArgumentManagement();
+            List<Command> cmdArray = CommandPool.GetCommands().ToList();
+            List<string> argSplit = null;
             List<Argument> argList = null;
-            Argument newArg = null;
 
             /*Searching array for the command by "Call" property*/
-            for (int i = 0; i < cmdArray.Length; i++)
+            Command cmdFound = cmdArray.Find(x => inputStr.StartsWith(x.Call) || inputStr.StartsWith(x.Call.ToUpper()) || inputStr.StartsWith(x.Call.ToLower()));
+
+            /*If the command cannot be identified by the "Call" property, the method returns null*/
+            if (cmdFound == null)
             {
-                /*Gathering arguments if the command have been found*/
-                if (inputStr.StartsWith(cmdArray[i].Call + " ") || inputStr.StartsWith(cmdArray[i].Call.ToUpper() + " ") || inputStr.StartsWith(cmdArray[i].Call.ToLower() + " ") || inputStr == cmdArray[i].Call || inputStr == cmdArray[i].Call.ToUpper() || inputStr == cmdArray[i].Call.ToLower())
+                return null;
+            }
+            if (cmdFound.MaxArgCount > 0)
+            {
+                /*Removing the command Call from the input*/
+                inputStr = inputStr.Remove(0, cmdFound.Call.Length);
+                if (inputStr.StartsWith(" "))
                 {
-                    CommandFound = true;
-                    if (cmdArray[i].MaxArgCount > 0)
-                    {
-                        /*Removing the command Call from the input*/
-                        inputStr = inputStr.Remove(0, cmdArray[i].Call.Length);
-                        if (inputStr.StartsWith(" "))
-                        {
-                            inputStr.Remove(0, 1);
-                        }
+                    inputStr.Remove(0, 1);
+                }
 
-                        /*Separating arguments considering the command's glob character support*/
-                        orderedArgs = new List<string>();
-                        argSplit = inputStr.Split(' ');
-                        if (cmdArray[i].AllowGlobs)
+                /*Separating arguments considering the command's glob character support*/
+                argSplit = inputStr.Split(' ').ToList();
+                if (cmdFound.AllowGlobs)
+                {
+                    for (int i = 0; i < argSplit.Count; i++)
+                    {
+                        if (argSplit[i].StartsWith("!*\"") || argSplit[i].StartsWith("!\"") || argSplit[i].StartsWith("*\"") || argSplit[i].StartsWith("\""))
                         {
-                            for (int j = 0; j < argSplit.Length; j++)
+                            for (int j = i; j < argSplit.Count; j++)
                             {
-                                if (argSplit[j].Length > 1)
+                                if (argSplit[j] != argSplit[i])
                                 {
-                                    if (argSplit[j][0] == '\"' || (argSplit[j][1] == '\"' && (argSplit[j][0] == '!' || argSplit[j][0] == '*')))
+                                    argSplit[i] += " " + argSplit[j];
+                                    if (argSplit[j].EndsWith("\"") || argSplit[j].EndsWith("\"*"))
                                     {
-                                        for (int k = j; k < argSplit.Length; k++)
-                                        {
-                                            tempArgStr += argSplit[k];
-                                            if (argSplit[j][0] == '\"' || argSplit[j][1] == '\"' && (argSplit[k].Last() != '\"' || (argSplit[k][argSplit[k].Length - 2] != '\"' && argSplit[k].Last() != '*')))
-                                            {
-                                                tempArgStr += " ";
-                                            }
-                                            if (argSplit[k].Last() == '\"' || (argSplit[k][argSplit[k].Length - 2] == '\"' && argSplit[k].Last() == '*'))
-                                            {
-                                                orderedArgs.Add(tempArgStr);
-                                                tempArgStr = null;
-                                                j = k;
-                                                break;
-                                            }
-                                        }
+                                        argSplit[j] = "";
+                                        break;
                                     }
                                     else
                                     {
-                                        orderedArgs.Add(argSplit[j]);
+                                        argSplit[j] = "";
                                     }
-                                }
-                                else
-                                {
-                                    orderedArgs.Add(argSplit[j]);
                                 }
                             }
                         }
-                        else
+                    }
+
+                    argSplit.RemoveAll(x => x == "");
+                }
+                else
+                {
+                    for (int i = 0; i < argSplit.Count; i++)
+                    {
+                        if (argSplit[i].StartsWith("\""))
                         {
-                            for (int j = 0; j < argSplit.Length; j++)
+                            for (int j = i; j < argSplit.Count; j++)
                             {
-                                if (argSplit[j].Length > 1)
+                                if (argSplit[j] != argSplit[i])
                                 {
-                                    if (argSplit[j][0] == '\"')
+                                    argSplit[i] += " " + argSplit[j];
+                                    if (argSplit[j].EndsWith("\""))
                                     {
-                                        for (int k = j; k < argSplit.Length; k++)
-                                        {
-                                            tempArgStr += argSplit[k];
-                                            if (argSplit[k].Last() != '\"')
-                                            {
-                                                tempArgStr += " ";
-                                            }
-                                            if (argSplit[k].Last() == '\"')
-                                            {
-                                                tempArgStr.Remove(tempArgStr.Length - 1);
-                                                orderedArgs.Add(tempArgStr);
-                                                tempArgStr = null;
-                                                j = k;
-                                                break;
-                                            }
-                                        }
+                                        argSplit[j] = "";
+                                        break;
                                     }
                                     else
                                     {
-                                        orderedArgs.Add(argSplit[j]);
+                                        argSplit[j] = "";
                                     }
                                 }
-                                else
-                                {
-                                    orderedArgs.Add(argSplit[j]);
-                                }
                             }
                         }
-                        argList = new List<Argument>();
+                    }
 
-                        /*Assembling arguments*/
-                        for (int j = 0; j < orderedArgs.Count(); j++)
-                        {
-                            if (orderedArgs[j].Length > 0)
-                            {
-                                newArg = new Argument();
-                                newArg.Arg = orderedArgs[j];
-                                if (newArg.Arg.Last() == ' ')
-                                {
-                                    newArg.Arg = newArg.Arg.Remove(newArg.Arg.Length - 1);
-                                }
-                                if (newArg.Arg.StartsWith("!") || newArg.Arg.StartsWith("*") || newArg.Arg.EndsWith("*"))
-                                {
-                                    newArg.ContainsGlobs = true;
-                                }
-                                else if (!newArg.Arg.StartsWith("!") && !newArg.Arg.StartsWith("*") && !newArg.Arg.EndsWith("*"))
-                                {
-                                    newArg.ContainsGlobs = false;
-                                }
-                                newArg.InterpreterParameters = new InterpreterParameters(newArg.Arg);
-                                newArg.InterpreterParameters.GetParameters();
-                                argList.Add(newArg);
-                            }
-                        }
-                        /*Handling argument count limit overrun*/
-                        if (cmdArray[i].MaxArgCount < argList.Count())
-                        {
-                            throw new CommandException("Too many argument(s)! Max arg count: " + cmdArray[i].MaxArgCount);
-                        }
-                        else if (cmdArray[i].MinArgCount > argList.Count())
-                        {
-                            throw new CommandException("Missing argument(s)! Min arg count: " + cmdArray[i].MinArgCount);
-                        }
-                        else
-                        {
-                            cmdArray[i].Args = argList.ToArray();
-                            return cmdArray[i];
-                        }
-                    }
-                    else
-                    {
-                        return cmdArray[i];
-                    }
+                    argSplit.RemoveAll(x => x == "");
+                }
+
+                argList = new List<Argument>();
+
+                /*Assembling arguments*/
+                argList = ARG_MGMT.GetArguments(argSplit.ToArray()).ToList();
+
+                /*Handling argument count limit overrun*/
+                if (cmdFound.MaxArgCount < argList.Count())
+                {
+                    throw new CommandException("Too many argument(s)! Max arg count: " + cmdFound.MaxArgCount);
+                }
+                else if (cmdFound.MinArgCount > argList.Count())
+                {
+                    throw new CommandException("Missing argument(s)! Min arg count: " + cmdFound.MinArgCount);
+                }
+                else
+                {
+                    cmdFound.Args = argList.ToArray();
+                    LAST_CMD = cmdFound;
+                    return cmdFound;
                 }
             }
-            /*If the command cannot be identified by the "Call" property, the method returns an empty command*/
-            return null;
+            else
+            {
+                return cmdFound;
+            }
+
+            /*Gathering arguments if the command has been found*/
         }
 
         /*Determines if the specified command is called by the user and if it is, returns the command, otherwise returns an empty command.*/
         public Command GetCommand(Command cmd, string inputStr)
         {
-            CommandFound = false;
-            string tempArgStr = null;
-            string[] argSplit = null;
-            List<string> orderedArgs = null;
+            ARG_MGMT = new ArgumentManagement();
+            List<string> argSplit = null;
             List<Argument> argList = null;
-            Argument newArg = null;
 
-            /*Searching array for the command by "Call" property*/
             /*Gathering arguments if the command have been found*/
             if (inputStr.StartsWith(cmd.Call + " ") || inputStr.StartsWith(cmd.Call.ToUpper() + " ") || inputStr.StartsWith(cmd.Call.ToLower() + " ") || inputStr == cmd.Call || inputStr == cmd.Call.ToUpper() || inputStr == cmd.Call.ToLower())
             {
-                CommandFound = true;
                 if (cmd.MaxArgCount > 0)
                 {
                     /*Removing the command Call from the input*/
@@ -528,104 +480,66 @@ namespace CLIShell
                     }
 
                     /*Separating arguments considering the command's glob character support*/
-                    orderedArgs = new List<string>();
-                    argSplit = inputStr.Split(' ');
+                    argSplit = inputStr.Split(' ').ToList();
                     if (cmd.AllowGlobs)
                     {
-                        for (int j = 0; j < argSplit.Length; j++)
+                        for (int i = 0; i < argSplit.Count; i++)
                         {
-                            if (argSplit[j].Length > 1)
+                            if (argSplit[i].StartsWith("!*\"") || argSplit[i].StartsWith("!\"") || argSplit[i].StartsWith("*\"") || argSplit[i].StartsWith("\""))
                             {
-                                if (argSplit[j][0] == '\"' || (argSplit[j][1] == '\"' && (argSplit[j][0] == '!' || argSplit[j][0] == '*')))
+                                for (int j = i; j < argSplit.Count; j++)
                                 {
-                                    for (int k = j; k < argSplit.Length; k++)
+                                    if (argSplit[j] != argSplit[i])
                                     {
-                                        tempArgStr += argSplit[k];
-                                        if (argSplit[j][0] == '\"' || argSplit[j][1] == '\"' && (argSplit[k].Last() != '\"' || (argSplit[k][argSplit[k].Length - 2] != '\"' && argSplit[k].Last() != '*')))
+                                        argSplit[i] += " " + argSplit[j];
+                                        if (argSplit[j].EndsWith("\"") || argSplit[j].EndsWith("\"*"))
                                         {
-                                            tempArgStr += " ";
-                                        }
-                                        if (argSplit[k].Last() == '\"' || (argSplit[k][argSplit[k].Length - 2] == '\"' && argSplit[k].Last() == '*'))
-                                        {
-                                            orderedArgs.Add(tempArgStr);
-                                            tempArgStr = null;
-                                            j = k;
+                                            argSplit[j] = "";
                                             break;
+                                        }
+                                        else
+                                        {
+                                            argSplit[j] = "";
                                         }
                                     }
                                 }
-                                else
-                                {
-                                    orderedArgs.Add(argSplit[j]);
-                                }
-                            }
-                            else
-                            {
-                                orderedArgs.Add(argSplit[j]);
                             }
                         }
+
+                        argSplit.RemoveAll(x => x == "");
                     }
                     else
                     {
-                        for (int j = 0; j < argSplit.Length; j++)
+                        for (int i = 0; i < argSplit.Count; i++)
                         {
-                            if (argSplit[j].Length > 1)
+                            if (argSplit[i].StartsWith("\""))
                             {
-                                if (argSplit[j][0] == '\"')
+                                for (int j = i; j < argSplit.Count; j++)
                                 {
-                                    for (int k = j; k < argSplit.Length; k++)
+                                    if (argSplit[j] != argSplit[i])
                                     {
-                                        tempArgStr += argSplit[k];
-                                        if (argSplit[k].Last() != '\"')
+                                        argSplit[i] += " " + argSplit[j];
+                                        if (argSplit[j].EndsWith("\""))
                                         {
-                                            tempArgStr += " ";
-                                        }
-                                        if (argSplit[k].Last() == '\"')
-                                        {
-                                            orderedArgs.Add(tempArgStr);
-                                            tempArgStr = null;
-                                            j = k;
+                                            argSplit[j] = "";
                                             break;
+                                        }
+                                        else
+                                        {
+                                            argSplit[j] = "";
                                         }
                                     }
                                 }
-                                else
-                                {
-                                    orderedArgs.Add(argSplit[j]);
-                                }
-                            }
-                            else
-                            {
-                                orderedArgs.Add(argSplit[j]);
                             }
                         }
+
+                        argSplit.RemoveAll(x => x == "");
                     }
                     argList = new List<Argument>();
 
                     /*Assembling arguments*/
-                    for (int j = 0; j < orderedArgs.Count(); j++)
-                    {
-                        if (orderedArgs[j].Length > 0)
-                        {
-                            newArg = new Argument();
-                            newArg.Arg = orderedArgs[j];
-                            if (newArg.Arg.Last() == ' ')
-                            {
-                                newArg.Arg = newArg.Arg.Remove(newArg.Arg.Length - 1);
-                            }
-                            if (newArg.Arg.StartsWith("!") || newArg.Arg.StartsWith("*") || newArg.Arg.EndsWith("*"))
-                            {
-                                newArg.ContainsGlobs = true;
-                            }
-                            else if (!newArg.Arg.StartsWith("!") && !newArg.Arg.StartsWith("*") && !newArg.Arg.EndsWith("*"))
-                            {
-                                newArg.ContainsGlobs = false;
-                            }
-                            newArg.InterpreterParameters = new InterpreterParameters(newArg.Arg);
-                            newArg.InterpreterParameters.GetParameters();
-                            argList.Add(newArg);               
-                        }
-                    }
+                    argList = ARG_MGMT.GetArguments(argSplit.ToArray()).ToList();
+
                     /*Handling argument count limit overrun*/
                     if (cmd.MaxArgCount < argList.Count())
                     {
@@ -638,6 +552,7 @@ namespace CLIShell
                     else
                     {
                         cmd.Args = argList.ToArray();
+                        LAST_CMD = cmd;
                         return cmd;
                     }
                 }
@@ -646,7 +561,7 @@ namespace CLIShell
                     return cmd;
                 }
             }
-            /*If the command cannot be identified by the "Call" property, the method returns an empty command*/
+            /*If the command cannot be identified by the "Call" property, the method returns null*/
             return null;
         }
 
@@ -674,79 +589,64 @@ namespace CLIShell
 
         public void Add(Command cmdToAdd, Action cmdFunc = null)
         {
-            for (int i = 0; i < CMD_LST.Count(); i++)
+            if (CMD_LST.Find(x => x.Call == cmdToAdd.Call) != null)
             {
-                if (CMD_LST[i].Call == cmdToAdd.Call)
-                {
-                    throw new Exception("A command with the same call(name) already exists in the pool!");
-                }
+                throw new Exception("A command with the same call(name) already exists in the pool!");
             }
+            CMD_LST.Add(cmdToAdd);
+
             if (cmdFunc != null)
             {
                 cmdToAdd.Function = cmdFunc;
             }
-            CMD_LST.Add(cmdToAdd);
         }
 
         public void Remove(string cmdCall)
         {
-            bool found = false;
-            for (int i = 0; i < CMD_LST.Count(); i++)
+            try
             {
-                if (CMD_LST[i].Call == cmdCall)
-                {
-                    found = true;
-                    CMD_LST.RemoveAt(i);
-                    break;
-                }
+                CMD_LST.RemoveAt(CMD_LST.FindIndex(x => x.Call == cmdCall));
             }
-            if (!found)
+            catch (Exception)
             {
-                throw new Exception("Command not found!");
-            }    
+                throw new Exception("Failed to remove command!");
+            }
         }
 
         public void AlterCommand(string cmdCall, int minArgCount, int maxArgCount, bool allowGlobs, string newCall = null, Action function = null, string description = null)
         {
-            Command cmdToAlter = null;
-            for (int j = 0; j < CMD_LST.Count(); j++)
-            {
-                if (CMD_LST[j].Call == newCall)
-                {
-                    throw new Exception("A command with the same call(name) already exists in the pool!");
-                }
-            }
-            for (int i = 0; i < CMD_LST.Count(); i++)
-            {
-                if (CMD_LST[i].Call == cmdCall)
-                {
-                    cmdToAlter = CMD_LST[i];
-                    string CALL = newCall;
-                    int MIN_ARG_CNT = minArgCount;
-                    int MAX_ARG_CNT = maxArgCount;
-                    bool ALLOW_GLOB = allowGlobs;
-                    string DESC = description;
-                    Action FUNC = function;
-                    if (newCall == null)
-                    {
-                        CALL = cmdToAlter.Call;
-                    }
-                    if (description == null)
-                    {
-                        DESC = cmdToAlter.Description;
-                    }
-                    if (function == null)
-                    {
-                        FUNC = cmdToAlter.Function;
-                    }
-                    CMD_LST[i] = new Command(CALL, MIN_ARG_CNT, MAX_ARG_CNT, ALLOW_GLOB, DESC, null, FUNC);
-                    break;
-                }
-            }
+            string CALL = "";
+            int MIN_ARG_CNT = minArgCount;
+            int MAX_ARG_CNT = maxArgCount;
+            string DESC = "";
+            bool ALLOW_GLOB = allowGlobs;
+            Action FUNC = null;
+            Command cmdToAlter = CMD_LST.Find(x => x.Call == cmdCall);
             if (cmdToAlter == null)
             {
                 throw new Exception("Command not found!");
             }
+            if (newCall != null && newCall != "")
+            {
+                CALL = newCall;
+                if (CMD_LST.Find(x => x.Call == CALL) != null)
+                {
+                    throw new Exception("A command with the same name already exists in the pool!");
+                }
+            }
+            if (MIN_ARG_CNT > MAX_ARG_CNT)
+            {
+                throw new Exception("minArgCount must be less than or equal to maxArgCount");
+            }
+            if (DESC != null)
+            {
+                DESC = description;
+            }
+            if (FUNC != null)
+            {
+                FUNC = function;
+            }
+            cmdToAlter = new Command(CALL, MIN_ARG_CNT, MAX_ARG_CNT, ALLOW_GLOB, DESC, null, FUNC);
         }
 
         public Command[] GetCommands()

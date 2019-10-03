@@ -81,12 +81,24 @@ New constructor parameters, new methods, new classes
 				- removed Command[] parameter
 				
 				
+============================================================================================================================================
+
+CLIShell v1.1.1
+New glob pattern, optimized code, fixes
+
+---------------------------------------				
 			
+	- New glob pattern: *text*; if the text between asterisks is a substring of compareStr, the Result equals true
 			
+	- New interpreter parameter: InterpreterParameter.BothEndAsterisk
 			
-			
-			
-			
+	- Optimized CommandManagement.GetCommand(), CommandManagement.GetCommandFromPool() methods
+	
+	- CommandManagement.GetLastExecuted() method works properly
+	
+	- Command.AlterCommand() method works properly
+	
+	- Removed CommandManagement.LastExecutedCall
 			
 			
 			
