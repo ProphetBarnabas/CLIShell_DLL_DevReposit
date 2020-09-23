@@ -1,0 +1,6 @@
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\bin\Debug\CLIShell.dll
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\bin\Debug\CLIShell.pdb
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Debug\CLIShell.csprojAssemblyReference.cache
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Debug\CLIShell.csproj.CoreCompileInputs.cache
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Debug\CLIShell.dll
+C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Debug\CLIShell.pdb
