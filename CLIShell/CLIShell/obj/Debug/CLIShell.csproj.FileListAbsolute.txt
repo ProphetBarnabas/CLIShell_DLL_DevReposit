@@ -4,9 +4,3 @@ C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Debug\CLIShell.cspro
 C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Debug\CLIShell.csproj.CoreCompileInputs.cache
 C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Debug\CLIShell.dll
 C:\Users\ProphetBarnabas\source\repos\CLIShell\CLIShell\obj\Debug\CLIShell.pdb
-C:\Users\ProphetBarnabas\Desktop\CLIShell_DLL_DevReposit-master\CLIShell\CLIShell\bin\Debug\CLIShell.dll
-C:\Users\ProphetBarnabas\Desktop\CLIShell_DLL_DevReposit-master\CLIShell\CLIShell\bin\Debug\CLIShell.pdb
-C:\Users\ProphetBarnabas\Desktop\CLIShell_DLL_DevReposit-master\CLIShell\CLIShell\obj\Debug\CLIShell.csprojAssemblyReference.cache
-C:\Users\ProphetBarnabas\Desktop\CLIShell_DLL_DevReposit-master\CLIShell\CLIShell\obj\Debug\CLIShell.csproj.CoreCompileInputs.cache
-C:\Users\ProphetBarnabas\Desktop\CLIShell_DLL_DevReposit-master\CLIShell\CLIShell\obj\Debug\CLIShell.dll
-C:\Users\ProphetBarnabas\Desktop\CLIShell_DLL_DevReposit-master\CLIShell\CLIShell\obj\Debug\CLIShell.pdb

@@ -101,12 +101,340 @@ New glob pattern, optimized code, fixes
 	- Removed CommandManagement.LastExecutedCall
 			
 			
-			
-			
-			
-			
-			
-			
-			
-			
-			
+============================================================================================================================================
+
+CLIShell v2.0
+Complete rewirte of entire library
+
+---------------------------------------
+
+	NEW COMPNENTS
+
+		IOInteractLayer - static class
+
+			Provides interaction layer between commands and WinDOS.
+
+			Methods:
+
+				StandardOutput(Command sender, string output)
+
+				StandardError(Commnad sender, Exception error)
+
+			Events:
+
+				StandardOutputReceived(object sender, IOInteractStdOutEventArgs e) - occurs when SandardOutput() method is called
+
+				StandardErrorReceived(object sender, IOInteractStdErrEventArgs e)  - occurs when StandardError() method is called
+
+    
+		EnvironmentVariables - static class
+
+			Provides variable exchange between commands and WinDOS. Startup and running config can be accessed here.
+
+			EnvironmentVariable - struct
+
+				Properties:
+
+					object CurrentValue { get; private set; }
+
+					object DefaultValue { get; private set; }
+
+					Enum VariableType { get; }
+
+						Runtime: Value is fixed, will not be saved to config.ini by WinDOS
+
+						Constant: Value is modifiable, will be saved to config.ini by WinDOS
+
+						RuntimeConstant: Value is modifiable, will not be saved to config.ini by WinDOS
+
+					Type ValueType { get; }
+                
+					string Name { get; }
+
+			Methods:
+
+				Add(EnvironmentVariable newVar)
+
+				Remove(EnvironmentVariables varToRemove)
+
+				Clear()
+
+				RemoveAll(Predicate<EnvironmentVariable> predicate)
+
+				AddRange(bool skipExistingItems, params EnvironmentVariable[] newVars)
+
+				SetToDefault(string name) 
+
+					Sets the specified EnvironmentVariable's CurrentValue property to its DefaultValue property
+
+
+				SetAllToDefault() 
+            
+					Sets all EnvironmentVariable's CurrentValue property to its DefaultValue property
+
+
+				ChangeCurrentValue(string name, object value, bool raiseEvent = true) 
+            
+					Changes the specified EnvironmentVariable's CurrentValue property to the specified value.
+					Raises CurrentValueChanged event by default.
+
+            
+				ChangeDefaultValue(string name, object value, bool raiseEvent = true) 
+            
+					Changes the specified EnvironmentVariable's DefaultValue property to the specified value.
+					Raises DefaultValueChanged event by default.
+
+            
+				Find(string name OR Predicate<EnvironmentVariable> predicate)
+
+					Finds and returns the specified EnvironmentVariable if it exists
+
+
+				FindAll(Predicate<EnvironmentVariable> predicate)
+
+					Finds and returns all EnvironmentVariables that match the predicate
+
+
+				GetAll()
+
+					Returns all EnvironmentVariables
+
+            
+				GetCurrentValue(string name)
+
+					Returns the CurrentValue property of the specified EnvironmentVariable
+
+
+				GetDefaultValue(string name)
+
+					Returns the DefaultValue property of the specified EnvironmentVariable
+
+
+			Events:
+
+				CurrentValueChanged(object sender, ValueChangedEventArgs e) - occurs when an EnvironmentVariable's CurrentValue has changed
+
+				DefaultValueChanged(object sender, ValueChangedEventArgs e) - occurs when an EnvironmentVariable's DefaultValue has changed
+
+
+		CommandArgument - class
+
+			Parameters:
+
+				Type Type { get; private set; }
+
+				string Call { get; }
+
+				pbject Value { get; }
+
+			Methods:
+
+				SetValue(object newValue)
+
+					Converts the new value to the CommandArgument's 'Type' property and changes its 'Value' property
+
+
+				SetValueType(Type newType)
+
+					Changes the 'Type' property and converts 'Value' property to the new type 
+
+
+		CommandArgumentEntry - class
+
+			Parameters:
+
+				bool OrderSensitive { get; }
+
+				string Pattern { get; }
+
+				string Description { get; }
+
+				List<CommandArgument> Arguments { get; } 
+
+        
+			Constructor:
+
+				- parameters: string pattern, bool orderSensitive, (optional)string description
+
+				Adds CommandArguments to the entry based on the specified pattern
+
+        
+			Argument pattern rules:
+
+				Argument types:
+
+					Call-only argument: "-arg"; must start with '-'
+
+					Value-only argument: "[valuetype]"; accepted value types: string, int, boolean, double, float, long, ulong, uint 
+
+					Complete argument: "-arg=[valuetype]" must separate call and value with '='
+
+				Using the same call multiple times in a single pattern is not recommended!
+
+
+		ArgumentTable - class
+
+			Parameters:
+
+				List<CommandArgumentEntry> ValidSequences { get; private set; }
+
+
+			Constructor:
+
+				- parameters: (optional)List<CommandArgumentEntry> validSequences
+
+			Methods:
+
+				Add(CommandArgumentEntry newSequence)
+
+				Remove(CommandArgumentEntry sequenceToRemove)
+
+				RemoveAll(Predicate<CommandArgumentEntry> predicate)
+
+				FindMatchingSequence(string input, bool allowGlobs)
+
+					- Attempts to find a matching sequence by comparing 'input' with the CommandArgumentEntry patterns in ValidSequences.
+
+					- If a matching sequence was found, merges the input with the pattern, 
+					  and constructs a new CommandArgumentEntry, which it returns.
+
+					- If input is null or empty, returns an epmty CommandArgumentEntry
+
+					- If no matching sequence was found, throws an Exception
+
+
+	Interpreter rework:
+
+		- Interpreter namespace removed
+
+		- classes InterpreterParameters and InterpreterResult have been merged to Interpreter class
+
+		Interpreter - class
+
+			Constructor:
+
+				Interpreter(string inputStr)
+
+				Searches for special characters("!*) in 'inputStr' and constructs 'inputStr' wihout special characters(GloblessInput).
+
+
+			GetResult(compareStr) - bool
+
+				Compares the input parameter to 'GloblessInput' 
+				and if they match in a way specified by special characters, returns 'true', otherwise returns 'false'.
+
+
+	CommandPool rework:
+
+		New methods:
+
+			AddRange(params Command[] cmdRange)
+
+			RemoveAt(int index)
+
+			RemoveAll(Predicate<Command> predicate)
+
+			RemoveRange(int index, int count)
+
+			Find(Predicate<Command> predicate)
+
+			FindAll(Predicate<Command> predicate)
+
+			ClearPool()
+
+
+		Modifications:
+
+			Remove(string call) paramter changed: Remove(Predicate<Command> predicate)
+
+			GetCommands() renamed to GetPool(), and returns List<Command> instead of Command[]
+
+
+		New Constructor:
+
+			Parameters: params Command[] commands OR string folderPath
+
+				If folder path is specified, Command pool loads all commands in that folder.
+
+
+	CommandManagement rework:
+
+		Constructor:
+
+			Parameter changed to (Enum)ExecutionLevel - User/Administrator
+
+		Methods:
+
+			- Removed GetCommandFromPool()
+
+			- GetCommand(string input, CommandPool pool) parameter added: CommandPool pool
+
+			- ExecuteCommand() will throw UnauthorizedAccessException if the command to be executed requires elevated privileges.
+			  Otherwise, executes the command synchronously.
+
+			- Added ExecuteAsyncCommand() 
+
+				Throws UnauthorizedAccessException if the command to be executed requires elevated privileges.
+				Otherwise, executes the command asynchronously (if the command has async function).
+
+		Parameters:
+
+			ExecutionLevel ExecutionLevel { get; }
+
+
+	Command rework:
+
+		Removed:
+
+			- FullCommand property
+
+			- Args property
+
+			- MinArgCount property
+
+			- MaxArgCount property
+
+
+		New properties:
+
+			- ExecutionLevel ExecutionLevel { get; }
+
+			- CommandArgumentEntry InputArgumentEntry { get; private set; }
+
+				Input arguments can be accessed here.
+
+			- ArgumentTable ArgumentTable { get; }
+
+				Valid argument sequences are stored here.
+
+			- CLIMode CLIMode { get; }
+
+				Determines the CLI mode the command is supposed to operate in, can be any of the following: Default, Regedit, Any
+
+			- Func<Task<string>> AsyncFunction { get; private set; }
+
+				Use this instead of 'Function' if the command should run asynchronously.
+
+    
+		New methods:
+
+			- SetFunction(Func<string> newFunction)
+
+				Sets Function parameter.
+
+			- SetAsyncFunction(Func<Task<string>> newAsyncFunction)
+
+				Sets AsyncFunction parameter.
+
+			- SetInputArguments(CommandArgumentEntry args)
+
+				Sets InputArgumentEntry parameter.
+				Used in CommandManagement.ExecuteCommand() and ExecuteAsyncCommand() 
+				to assign ArgumentTable.FindMatchingSequence() result.
+
+
+		Modifications:
+
+			- Function is no longer type of Action. New type: Func<string>
+
+			- Functions now have string or Task<string> return value (WinDOS displays this value).
